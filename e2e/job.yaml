@@ -1,0 +1,29 @@
+# Job k6 : lance les tests E2E dans le namespace de l'environnement (le script vient de la ConfigMap e2e-script)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: e2e
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {app: e2e}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:2.3.0
+          args: ["run", "--quiet", "/scripts/test.js"]
+          env:
+            - name: BASE_URL
+              value: http://api
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+      volumes:
+        - name: scripts
+          configMap: {name: e2e-script}

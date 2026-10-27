@@ -1,0 +1,61 @@
+# Pipeline GitLab : un environnement ephemere par merge request, tests E2E, destruction a la fermeture.
+# Prerequis : un GitLab Runner (executor Kubernetes) enregistre sur le projet avec le tag "k8s-lab",
+# dont les Pods de job utilisent le ServiceAccount "review-deployer" (voir runner/).
+stages: [build, review, e2e, stop]
+
+variables:
+  IMAGE: "$CI_REGISTRY_IMAGE/items-api:$CI_COMMIT_SHORT_SHA"
+  REVIEW_NS: "review-mr-$CI_MERGE_REQUEST_IID"
+  REVIEW_HOST: "mr-$CI_MERGE_REQUEST_IID.review.lab.local"
+
+workflow:
+  rules:
+    - if: $CI_MERGE_REQUEST_IID          # le pipeline ne tourne que pour une merge request
+
+build-image:
+  stage: build
+  tags: [k8s-lab]
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  script:
+    # CI_REGISTRY_USER / CI_REGISTRY_PASSWORD = identifiants du job (CI_JOB_TOKEN) pour le registre du projet
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor --context "$CI_PROJECT_DIR/app" --dockerfile "$CI_PROJECT_DIR/app/Dockerfile" --target prod --destination "$IMAGE"
+
+deploy-review:
+  stage: review
+  tags: [k8s-lab]
+  image: alpine/k8s:1.33.4            # kubectl + kustomize + helm
+  variables:
+    REGISTRY_SERVER: "$CI_REGISTRY"
+    REGISTRY_USER: "$REVIEW_DEPLOY_USER"       # deploy token du projet (Settings > Repository > Deploy tokens)
+    REGISTRY_PASSWORD: "$REVIEW_DEPLOY_PASSWORD"
+  script:
+    - bash ci/deploy-review.sh
+  environment:
+    name: review/mr-$CI_MERGE_REQUEST_IID
+    url: http://$REVIEW_HOST:30080
+    on_stop: stop-review
+    auto_stop_in: 4 hours             # filet de securite : destruction automatique
+
+e2e-tests:
+  stage: e2e
+  tags: [k8s-lab]
+  image: alpine/k8s:1.33.4
+  script:
+    - bash ci/run-e2e.sh
+
+stop-review:
+  stage: stop
+  tags: [k8s-lab]
+  image: alpine/k8s:1.33.4
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - kubectl delete namespace "$REVIEW_NS" --ignore-not-found --wait=false
+  environment:
+    name: review/mr-$CI_MERGE_REQUEST_IID
+    action: stop
+  when: manual                         # declenche aussi automatiquement a la fermeture/fusion de la MR

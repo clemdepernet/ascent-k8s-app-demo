@@ -1,0 +1,22 @@
+# GitLab Runner (executor Kubernetes) dans le cluster du lab, enregistre sur gitlab.com
+# helm repo add gitlab https://charts.gitlab.io
+# helm install gitlab-runner gitlab/gitlab-runner --version 0.94.1 -n gitlab-runner --create-namespace \
+#   -f runner/values-gitlab-runner.yaml --set runnerToken=glrt-xxxxxxxx
+gitlabUrl: https://gitlab.com/
+runnerToken: ""                 # jeton d'authentification du runner (Settings > CI/CD > Runners > New project runner, tag k8s-lab)
+concurrent: 2
+rbac:
+  create: true                  # droits pour creer les Pods de job dans le namespace gitlab-runner
+serviceAccount:
+  create: true
+  name: gitlab-runner
+runners:
+  config: |
+    [[runners]]
+      [runners.kubernetes]
+        namespace = "gitlab-runner"
+        image = "alpine:3.21"
+        service_account = "review-deployer"     # SA porte par les Pods de job : droits sur les namespaces review-*
+        cpu_request = "100m"
+        memory_request = "128Mi"
+        poll_timeout = 300

@@ -1,0 +1,10 @@
+# Minikube fournit une StorageClass "standard" (hostPath) : les donnees survivent aux redemarrages de Pods
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi

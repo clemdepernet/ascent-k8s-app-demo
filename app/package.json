@@ -1,0 +1,17 @@
+{
+  "name": "ascent-items-api",
+  "version": "1.0.0",
+  "description": "API de demonstration (formation Kubernetes Ascent) : items stockes dans PostgreSQL",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon --legacy-watch server.js"
+  },
+  "dependencies": {
+    "express": "4.21.2",
+    "pg": "8.13.1"
+  },
+  "devDependencies": {
+    "nodemon": "3.1.9"
+  }
+}

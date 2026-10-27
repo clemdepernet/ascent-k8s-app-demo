@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+type: Opaque
+stringData:
+  POSTGRES_USER: app
+  POSTGRES_PASSWORD: app
+  POSTGRES_DB: items
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  labels: {app: db}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: db}
+  template:
+    metadata:
+      labels: {app: db}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          envFrom:
+            - secretRef: {name: db-credentials}
+          ports:
+            - name: pg
+              containerPort: 5432
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "app", "-d", "items"]}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          volumeMounts:
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: init
+          configMap: {name: db-init}
+        - name: data
+          emptyDir: {}          # remplace par un PVC dans l'overlay dev (Minikube)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector: {app: db}
+  ports:
+    - name: pg
+      port: 5432
+      targetPort: pg

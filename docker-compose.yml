@@ -1,0 +1,30 @@
+# Etat de depart des equipes : developpement local avec hot reload (nodemon + volume monte)
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: items
+    volumes:
+      - ./k8s/base/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - dbdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  api:
+    build:
+      context: ./app
+      target: dev
+    environment:
+      DB_HOST: db
+      APP_VERSION: compose-dev
+      ENV_NAME: compose
+    volumes:
+      - ./app:/usr/src/app            # hot reload : le code de l'hote est monte dans le conteneur
+      - /usr/src/app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+volumes:
+  dbdata:

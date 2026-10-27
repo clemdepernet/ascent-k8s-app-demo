@@ -1,0 +1,34 @@
+# Skaffold : boucle de developpement sur Minikube (TPB4)
+#   skaffold dev   construit l'image dans le Docker de Minikube, deploie l'overlay dev,
+#                  synchronise les fichiers modifies dans le conteneur (nodemon redemarre l'API),
+#                  redirige localhost:3000 vers le Service api
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: items-api
+build:
+  local:
+    push: false               # Minikube : pas de registre, l'image reste dans son daemon Docker
+  artifacts:
+    - image: items-api
+      context: app
+      docker:
+        dockerfile: Dockerfile
+        target: dev
+      sync:
+        manual:
+          - src: "*.js"       # hot reload : copie du fichier sans reconstruire l'image
+            dest: .
+manifests:
+  kustomize:
+    paths:
+      - k8s/overlays/dev
+deploy:
+  kubectl: {}
+  statusCheckDeadlineSeconds: 180
+portForward:
+  - resourceType: service
+    resourceName: api
+    namespace: items-dev
+    port: 80
+    localPort: 3000

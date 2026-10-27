@@ -1,0 +1,24 @@
+# Overlay "dev" : developpement local sur Minikube avec Skaffold (TPB4)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: items-dev
+resources:
+  - ../../base
+  - namespace.yaml
+  - pvc.yaml
+images:
+  - name: items-api
+    newName: items-api      # Skaffold remplace le tag par celui qu'il vient de construire
+    newTag: dev
+configMapGenerator:
+  - name: api-config
+    behavior: merge
+    literals:
+      - APP_VERSION=dev
+      - ENV_NAME=minikube
+patches:
+  - target: {kind: Deployment, name: db}
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/volumes/1
+        value: {name: data, persistentVolumeClaim: {claimName: db-data}}
